@@ -7,6 +7,16 @@
 
 #include "secrets.h"
 
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+// Data wire is connected to GPIO2 (D4 on NodeMCU)
+// Change this to your GPIO pin if different
+#define ONE_WIRE_BUS 2
+
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+
 void setup()
 {
   Serial.begin(115200);
@@ -27,11 +37,20 @@ void setup()
   Serial.println("WiFi connected.");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
+  sensors.begin();
 }
 
 void loop()
 {
-  // Main program loop - runs repeatedly after setup()
-  // Add your main application code here
-  delay(1000); // Simple delay to prevent busy waiting
+  // Request temperature measurement
+  sensors.requestTemperatures();
+
+  // Fetch temperature in Celsius
+  float tempC = sensors.getTempCByIndex(0);
+
+  Serial.print("Temperature: ");
+  Serial.print(tempC);
+  Serial.println(" °C");
+
+  delay(2000); // Wait 2 seconds between reads
 }
