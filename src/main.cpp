@@ -17,14 +17,14 @@
 
 // Data wire is connected to GPIO2 (D4 on NodeMCU)
 // Change this to your GPIO pin if different
-#define ONE_WIRE_BUS 2
+#define ONE_WIRE_BUS 4
 
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 
 // Initialize web server on port 80
 #ifdef ESP32
-WiFiServer server(80);
+WebServer server(80);
 #else
 ESP8266WebServer server(80);
 #endif
