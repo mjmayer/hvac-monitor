@@ -15,20 +15,25 @@
 // Uncomment the following line to enable debug logging
 #define DEBUG_LOGGING
 
+// #define WIFI_ENABLED
+
 // Data wire is connected to GPIO2 (D4 on NodeMCU)
 // Change this to your GPIO pin if different
 #define ONE_WIRE_BUS 4
 
+#define HVAC_PIN 19
+
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 
+#ifdef WIFI_ENABLED
 // Initialize web server on port 80
 #ifdef ESP32
 WebServer server(80);
 #else
 ESP8266WebServer server(80);
 #endif
-
+#endif
 // Define the addresses of the sensors
 DeviceAddress sensorBeforeCoil = {0x28, 0x58, 0x34, 0x50, 0x00, 0x00, 0x00, 0xD2};
 DeviceAddress sensorAfterCoil = {0x28, 0x32, 0x5A, 0x51, 0x00, 0x00, 0x00, 0xE2};
@@ -55,19 +60,22 @@ void handleMetrics()
   response += String(tempAttic);
   response += "\n";
 
+#ifdef WIFI_ENABLED
   server.send(200, "text/plain", response);
+#endif
 }
 
 void setup()
 {
 #ifdef DEBUG_LOGGING
   Serial.begin(115200);
-  delay(10);
+  delay(1000);
+#endif
+
+#ifdef WIFI_ENABLED
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(ssid);
-#endif
-
   WiFi.begin(ssid, password);
 
   while (WiFi.status() != WL_CONNECTED)
@@ -89,7 +97,7 @@ void setup()
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP().toString());
 #endif
-
+#endif
   sensors.begin();
 #ifdef DEBUG_LOGGING
   Serial.print("Found ");
@@ -114,16 +122,19 @@ void setup()
     }
   }
 #endif
+#ifdef WIFI_ENABLED
   server.on("/metrics", handleMetrics);
   server.begin();
-#ifdef DEBUG_LOGGING
   Serial.println("HTTP server started.");
 #endif
+  pinMode(HVAC_PIN, INPUT);
 }
 
 void loop()
 {
+#ifdef WIFI_ENABLED
   server.handleClient();
+#endif
 #ifdef DEBUG_LOGGING
   // Optionally print readings to Serial Monitor every 10 seconds
   static unsigned long lastPrint = 0;
@@ -151,5 +162,32 @@ void loop()
 
     lastPrint = millis();
   }
+#endif
+
+#ifdef DEBUG_LOGGING
+  const int sampleCount = 20;
+const int minActiveCount = 5; // Lower threshold for testing
+const int sampleDelayMs = 5;
+
+int lowCount = 0;
+
+for (int i = 0; i < sampleCount; i++) {
+  int state = digitalRead(HVAC_PIN);
+  if (state == LOW) {
+    lowCount++;
+  }
+  delay(sampleDelayMs);
+}
+
+Serial.print("LOW samples: ");
+Serial.println(lowCount);
+
+if (lowCount >= minActiveCount) {
+  Serial.println("Optocoupler input is LOW (active)");
+} else {
+  Serial.println("Optocoupler input is HIGH (inactive)");
+}
+
+delay(500);
 #endif
 }
