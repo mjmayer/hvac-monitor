@@ -7,7 +7,7 @@
 #include <ESP8266WebServer.h>
 #endif
 
-#include "secrets.h"
+// #include "secrets.h"//kevin
 
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -21,7 +21,8 @@
 // Change this to your GPIO pin if different
 #define ONE_WIRE_BUS 4
 
-#define HVAC_PIN 19
+#define HVAC_PIN18 18 // kevin
+#define HVAC_PIN21 21 // kevin
 
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
@@ -127,7 +128,8 @@ void setup()
   server.begin();
   Serial.println("HTTP server started.");
 #endif
-  pinMode(HVAC_PIN, INPUT);
+  pinMode(HVAC_PIN18, INPUT);
+  pinMode(HVAC_PIN21, INPUT);
 }
 
 void loop()
@@ -148,11 +150,11 @@ void loop()
     float tempAfter = sensors.getTempC(sensorAfterCoil);
     float tempAttic = sensors.getTempC(sensorAttic);
 
-    Serial.print("Before Coil: ");
+    Serial.print("Return: "); // kevin
     Serial.print(tempBefore);
     Serial.println(" °C");
 
-    Serial.print("After Coil: ");
+    Serial.print("Supply: "); // kevin
     Serial.print(tempAfter);
     Serial.println(" °C");
 
@@ -166,28 +168,65 @@ void loop()
 
 #ifdef DEBUG_LOGGING
   const int sampleCount = 20;
-const int minActiveCount = 5; // Lower threshold for testing
-const int sampleDelayMs = 5;
+  const int minActiveCount = 5; // Lower threshold for testing
+  const int sampleDelayMs = 5;
 
-int lowCount = 0;
+  int lowCount = 0;
 
-for (int i = 0; i < sampleCount; i++) {
-  int state = digitalRead(HVAC_PIN);
-  if (state == LOW) {
-    lowCount++;
+  for (int i = 0; i < sampleCount; i++)
+  {
+    int state = digitalRead(HVAC_PIN18); // kevin
+    if (state == LOW)
+    {
+      lowCount++;
+    }
+    delay(sampleDelayMs);
   }
-  delay(sampleDelayMs);
-}
 
-Serial.print("LOW samples: ");
-Serial.println(lowCount);
+  Serial.print("LOW samples: ");
+  Serial.println(lowCount);
 
-if (lowCount >= minActiveCount) {
-  Serial.println("Optocoupler input is LOW (active)");
-} else {
-  Serial.println("Optocoupler input is HIGH (inactive)");
-}
+  if (lowCount >= minActiveCount)
+  {
+    Serial.println("Optocoupler D18 Green wire Fan input is LOW (active)"); // kevin
+  }
+  else
+  {
+    Serial.println("Optocoupler D18 Green wire Fan input is HIGH (inactive)"); // kevin
+  }
 
-delay(500);
+  delay(500);
+#endif
+// duplicated opto read for pin21
+#ifdef DEBUG_LOGGING
+  // const int sampleCount = 20;//kevin
+  // const int minActiveCount = 5; // Lower threshold for testing//kevin
+  // const int sampleDelayMs = 5;//kevin
+
+  // int lowCount = 0;//kevin
+
+  for (int i = 0; i < sampleCount; i++)
+  {
+    int state = digitalRead(HVAC_PIN21);
+    if (state == LOW)
+    {
+      lowCount++;
+    }
+    delay(sampleDelayMs);
+  }
+
+  Serial.print("LOW samples: ");
+  Serial.println(lowCount);
+
+  if (lowCount >= minActiveCount)
+  {
+    Serial.println("Optocoupler D21 Blue wire  4-way value input is LOW (active)");
+  }
+  else
+  {
+    Serial.println("Optocoupler D21 Blue wire 4-way value input is HIGH (inactive)");
+  }
+
+  delay(500);
 #endif
 }
