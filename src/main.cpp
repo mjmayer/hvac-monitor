@@ -15,7 +15,8 @@
 // Uncomment the following line to enable debug logging
 #define DEBUG_LOGGING
 
-// #define WIFI_ENABLED
+// Uncomment the following line to enable WiFi functionality
+#define WIFI_ENABLED
 
 // Data wire is connected to GPIO2 (D4 on NodeMCU)
 // Change this to your GPIO pin if different
