@@ -21,7 +21,8 @@
 // Change this to your GPIO pin if different
 #define ONE_WIRE_BUS 4
 
-#define HVAC_PIN 19
+#define HVAC_PIN18 18
+#define HVAC_PIN21 21
 
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
@@ -38,6 +39,43 @@ ESP8266WebServer server(80);
 DeviceAddress sensorBeforeCoil = {0x28, 0x58, 0x34, 0x50, 0x00, 0x00, 0x00, 0xD2};
 DeviceAddress sensorAfterCoil = {0x28, 0x32, 0x5A, 0x51, 0x00, 0x00, 0x00, 0xE2};
 DeviceAddress sensorAttic = {0x28, 0x0D, 0x70, 0x54, 0x00, 0x00, 0x00, 0xEF};
+
+// Function to sample optocoupler input and determine if it's active
+bool isOptocouplerActive(int pin, const char *name = nullptr)
+{
+  const int sampleCount = 20;
+  const int minActiveCount = 5; // Lower threshold for testing
+  const int sampleDelayMs = 5;
+
+  int lowCount = 0;
+
+  for (int i = 0; i < sampleCount; i++)
+  {
+    int state = digitalRead(pin);
+    if (state == LOW)
+    {
+      lowCount++;
+    }
+    delay(sampleDelayMs);
+  }
+
+#ifdef DEBUG_LOGGING
+  if (name)
+  {
+    Serial.print(name);
+    Serial.print(" - LOW samples: ");
+  }
+  else
+  {
+    Serial.print("Pin ");
+    Serial.print(pin);
+    Serial.print(" - LOW samples: ");
+  }
+  Serial.println(lowCount);
+#endif
+
+  return (lowCount >= minActiveCount);
+}
 
 void handleMetrics()
 {
@@ -127,7 +165,10 @@ void setup()
   server.begin();
   Serial.println("HTTP server started.");
 #endif
-  pinMode(HVAC_PIN, INPUT);
+  // FAN
+  pinMode(HVAC_PIN18, INPUT);
+  // 4-way valve
+  pinMode(HVAC_PIN21, INPUT);
 }
 
 void loop()
@@ -165,29 +206,24 @@ void loop()
 #endif
 
 #ifdef DEBUG_LOGGING
-  const int sampleCount = 20;
-const int minActiveCount = 5; // Lower threshold for testing
-const int sampleDelayMs = 5;
-
-int lowCount = 0;
-
-for (int i = 0; i < sampleCount; i++) {
-  int state = digitalRead(HVAC_PIN);
-  if (state == LOW) {
-    lowCount++;
+  if (isOptocouplerActive(HVAC_PIN18, "HVAC_PIN18"))
+  {
+    Serial.println("HVAC_PIN18 (Fan) is ACTIVE");
   }
-  delay(sampleDelayMs);
-}
+  else
+  {
+    Serial.println("HVAC_PIN18 (Fan) is INACTIVE");
+  }
 
-Serial.print("LOW samples: ");
-Serial.println(lowCount);
+  if (isOptocouplerActive(HVAC_PIN21, "HVAC_PIN21"))
+  {
+    Serial.println("HVAC_PIN21 (4-way valve) is ACTIVE");
+  }
+  else
+  {
+    Serial.println("HVAC_PIN21 (4-way valve) is INACTIVE");
+  }
 
-if (lowCount >= minActiveCount) {
-  Serial.println("Optocoupler input is LOW (active)");
-} else {
-  Serial.println("Optocoupler input is HIGH (inactive)");
-}
-
-delay(500);
+  delay(500);
 #endif
 }
