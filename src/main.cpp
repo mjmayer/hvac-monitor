@@ -22,7 +22,9 @@
 // Change this to your GPIO pin if different
 #define ONE_WIRE_BUS 4
 
+// FAN
 #define HVAC_PIN18 18
+// 4-way valve
 #define HVAC_PIN21 21
 
 OneWire oneWire(ONE_WIRE_BUS);
@@ -42,7 +44,7 @@ DeviceAddress sensorAfterCoil = {0x28, 0x32, 0x5A, 0x51, 0x00, 0x00, 0x00, 0xE2}
 DeviceAddress sensorAttic = {0x28, 0x0D, 0x70, 0x54, 0x00, 0x00, 0x00, 0xEF};
 
 // Function to sample optocoupler input and determine if it's active
-bool isOptocouplerActive(int pin, const char *name = nullptr)
+bool isSignalEnergized(int pin, const char *name = nullptr)
 {
   const int sampleCount = 20;
   const int minActiveCount = 5; // Lower threshold for testing
@@ -80,23 +82,57 @@ bool isOptocouplerActive(int pin, const char *name = nullptr)
 
 void handleMetrics()
 {
+  // Request all temperature readings at once
   sensors.requestTemperatures();
 
-  float tempBefore = sensors.getTempC(sensorBeforeCoil);
-  float tempAfter = sensors.getTempC(sensorAfterCoil);
-  float tempAttic = sensors.getTempC(sensorAttic);
+  // Get Celsius readings
+  float tempBeforeC = sensors.getTempC(sensorBeforeCoil);
+  float tempAfterC = sensors.getTempC(sensorAfterCoil);
+  float tempAtticC = sensors.getTempC(sensorAttic);
+
+  // Convert to Fahrenheit
+  float tempBeforeF = tempBeforeC * 9.0 / 5.0 + 32.0;
+  float tempAfterF = tempAfterC * 9.0 / 5.0 + 32.0;
+  float tempAtticF = tempAtticC * 9.0 / 5.0 + 32.0;
+
+  // Read the digital inputs
+  bool fanEnergized = isSignalEnergized(HVAC_PIN18);
+  bool reversingValveEnergized = isSignalEnergized(HVAC_PIN21);
 
   String response;
+
+  // Temperature metrics (Celsius)
   response += "hvac_temperature_celsius{location=\"before_coil\"} ";
-  response += String(tempBefore);
+  response += String(tempBeforeC);
   response += "\n";
 
   response += "hvac_temperature_celsius{location=\"after_coil\"} ";
-  response += String(tempAfter);
+  response += String(tempAfterC);
   response += "\n";
 
   response += "hvac_temperature_celsius{location=\"attic\"} ";
-  response += String(tempAttic);
+  response += String(tempAtticC);
+  response += "\n";
+
+  // Temperature metrics (Fahrenheit)
+  response += "hvac_temperature_fahrenheit{location=\"before_coil\"} ";
+  response += String(tempBeforeF);
+  response += "\n";
+
+  response += "hvac_temperature_fahrenheit{location=\"after_coil\"} ";
+  response += String(tempAfterF);
+  response += "\n";
+
+  response += "hvac_temperature_fahrenheit{location=\"attic\"} ";
+  response += String(tempAtticF);
+  response += "\n";
+  // Signal metrics
+  response += "hvac_signal_state{signal=\"compressor\"} ";
+  response += fanEnergized ? "1" : "0";
+  response += "\n";
+
+  response += "hvac_signal_state{signal=\"reversing_valve\"} ";
+  response += reversingValveEnergized ? "1" : "0";
   response += "\n";
 
 #ifdef WIFI_ENABLED
@@ -166,9 +202,7 @@ void setup()
   server.begin();
   Serial.println("HTTP server started.");
 #endif
-  // FAN
   pinMode(HVAC_PIN18, INPUT);
-  // 4-way valve
   pinMode(HVAC_PIN21, INPUT);
 }
 
@@ -207,22 +241,22 @@ void loop()
 #endif
 
 #ifdef DEBUG_LOGGING
-  if (isOptocouplerActive(HVAC_PIN18, "HVAC_PIN18"))
+  if (isSignalEnergized(HVAC_PIN18, "HVAC_PIN18"))
   {
-    Serial.println("HVAC_PIN18 (Fan) is ACTIVE");
+    Serial.println("Compressor is ENERGIZED (Fan ON)");
   }
   else
   {
-    Serial.println("HVAC_PIN18 (Fan) is INACTIVE");
+    Serial.println("Compressor is NOT ENERGIZED (Fan OFF)");
   }
 
-  if (isOptocouplerActive(HVAC_PIN21, "HVAC_PIN21"))
+  if (isSignalEnergized(HVAC_PIN21, "HVAC_PIN21"))
   {
-    Serial.println("HVAC_PIN21 (4-way valve) is ACTIVE");
+    Serial.println("4-way valve is ENERGIZED (heating mode)");
   }
   else
   {
-    Serial.println("HVAC_PIN21 (4-way valve) is INACTIVE");
+    Serial.println("4-way valve is NOT ENERGIZED (cooling mode)");
   }
 
   delay(500);
