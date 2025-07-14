@@ -13,7 +13,7 @@
 #include <DallasTemperature.h>
 
 // Uncomment the following line to enable debug logging
-#define DEBUG_LOGGING
+// #define DEBUG_LOGGING
 
 // Uncomment the following line to enable WiFi functionality
 #define WIFI_ENABLED
