@@ -199,8 +199,10 @@ void setup()
   startTime = millis();
   server.on("/health", handleHealth);
   // Timeout after WATCHDOG_TIMEOUT seconds if not reset
+#ifdef ESP32
   esp_task_wdt_init(WATCHDOG_TIMEOUT, true);
   esp_task_wdt_add(NULL);
+#endif
 }
 
 void loop()
