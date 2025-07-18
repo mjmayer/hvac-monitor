@@ -47,6 +47,8 @@ unsigned long lastSampleTime = 0;
 const unsigned long sampleInterval = 5000; // 5 seconds
 
 float tempBeforeC = NAN, tempAfterC = NAN, tempAtticC = NAN;
+// Cached digital input states representing whether the fan and reversing valve are energized.
+// These states are updated every 5 seconds based on the optocoupler input sampling logic.
 bool fanEnergized = false, reversingValveEnergized = false;
 unsigned long startTime;
 
