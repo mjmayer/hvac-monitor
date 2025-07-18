@@ -46,6 +46,8 @@ DeviceAddress sensorAttic = {0x28, 0x0D, 0x70, 0x54, 0x00, 0x00, 0x00, 0xEF};
 unsigned long lastSampleTime = 0;
 const unsigned long sampleInterval = 5000; // 5 seconds
 
+// Cached temperature values from sensors.
+// These values are updated every 5 seconds based on the sampleInterval.
 float tempBeforeC = NAN, tempAfterC = NAN, tempAtticC = NAN;
 // Cached digital input states representing whether the fan and reversing valve are energized.
 // These states are updated every 5 seconds based on the optocoupler input sampling logic.
