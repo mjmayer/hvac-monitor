@@ -265,5 +265,7 @@ void loop()
 
   delay(500);
 #endif
+#ifdef ESP32
   esp_task_wdt_reset();
+#endif
 }
