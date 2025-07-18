@@ -1,7 +1,7 @@
-// You can do conditional includes:
 #ifdef ESP32
 #include <WiFi.h>
 #include <WebServer.h>
+#include "esp_task_wdt.h"
 #else
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
@@ -27,6 +27,9 @@
 // 4-way valve
 #define HVAC_PIN21 21
 
+// Watchdog timeout in seconds
+#define WATCHDOG_TIMEOUT 5
+
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 
@@ -42,6 +45,23 @@ ESP8266WebServer server(80);
 DeviceAddress sensorBeforeCoil = {0x28, 0x58, 0x34, 0x50, 0x00, 0x00, 0x00, 0xD2};
 DeviceAddress sensorAfterCoil = {0x28, 0x32, 0x5A, 0x51, 0x00, 0x00, 0x00, 0xE2};
 DeviceAddress sensorAttic = {0x28, 0x0D, 0x70, 0x54, 0x00, 0x00, 0x00, 0xEF};
+
+unsigned long lastSampleTime = 0;
+const unsigned long sampleInterval = 5000; // 5 seconds
+
+// Cached temperature values from sensors.
+// These values are updated every 5 seconds based on the sampleInterval.
+float tempBeforeC = NAN, tempAfterC = NAN, tempAtticC = NAN;
+// Cached digital input states representing whether the fan and reversing valve are energized.
+// These states are updated every 5 seconds based on the optocoupler input sampling logic.
+bool fanEnergized = false, reversingValveEnergized = false;
+unsigned long startTime;
+
+void handleHealth()
+{
+  unsigned long uptimeSec = (millis() - startTime) / 1000;
+  server.send(200, "text/plain", "OK\nUptime: " + String(uptimeSec) + "s");
+}
 
 // Function to sample optocoupler input and determine if it's active
 bool isSignalEnergized(int pin, const char *name = nullptr)
@@ -80,60 +100,32 @@ bool isSignalEnergized(int pin, const char *name = nullptr)
   return (lowCount >= minActiveCount);
 }
 
+void sampleHVAC()
+{
+  sensors.requestTemperatures();
+  tempBeforeC = sensors.getTempC(sensorBeforeCoil);
+  tempAfterC = sensors.getTempC(sensorAfterCoil);
+  tempAtticC = sensors.getTempC(sensorAttic);
+
+  fanEnergized = isSignalEnergized(HVAC_PIN18);
+  reversingValveEnergized = isSignalEnergized(HVAC_PIN21);
+}
+
 void handleMetrics()
 {
-  // Request all temperature readings at once
-  sensors.requestTemperatures();
-
-  // Get Celsius readings
-  float tempBeforeC = sensors.getTempC(sensorBeforeCoil);
-  float tempAfterC = sensors.getTempC(sensorAfterCoil);
-  float tempAtticC = sensors.getTempC(sensorAttic);
-
-  // Convert to Fahrenheit
   float tempBeforeF = tempBeforeC * 9.0 / 5.0 + 32.0;
   float tempAfterF = tempAfterC * 9.0 / 5.0 + 32.0;
   float tempAtticF = tempAtticC * 9.0 / 5.0 + 32.0;
 
-  // Read the digital inputs
-  bool fanEnergized = isSignalEnergized(HVAC_PIN18);
-  bool reversingValveEnergized = isSignalEnergized(HVAC_PIN21);
-
   String response;
-
-  // Temperature metrics (Celsius)
-  response += "hvac_temperature_celsius{location=\"before_coil\"} ";
-  response += String(tempBeforeC);
-  response += "\n";
-
-  response += "hvac_temperature_celsius{location=\"after_coil\"} ";
-  response += String(tempAfterC);
-  response += "\n";
-
-  response += "hvac_temperature_celsius{location=\"attic\"} ";
-  response += String(tempAtticC);
-  response += "\n";
-
-  // Temperature metrics (Fahrenheit)
-  response += "hvac_temperature_fahrenheit{location=\"before_coil\"} ";
-  response += String(tempBeforeF);
-  response += "\n";
-
-  response += "hvac_temperature_fahrenheit{location=\"after_coil\"} ";
-  response += String(tempAfterF);
-  response += "\n";
-
-  response += "hvac_temperature_fahrenheit{location=\"attic\"} ";
-  response += String(tempAtticF);
-  response += "\n";
-  // Signal metrics
-  response += "hvac_signal_state{signal=\"compressor\"} ";
-  response += fanEnergized ? "1" : "0";
-  response += "\n";
-
-  response += "hvac_signal_state{signal=\"reversing_valve\"} ";
-  response += reversingValveEnergized ? "1" : "0";
-  response += "\n";
+  response += "hvac_temperature_celsius{location=\"before_coil\"} " + String(tempBeforeC) + "\n";
+  response += "hvac_temperature_celsius{location=\"after_coil\"} " + String(tempAfterC) + "\n";
+  response += "hvac_temperature_celsius{location=\"attic\"} " + String(tempAtticC) + "\n";
+  response += "hvac_temperature_fahrenheit{location=\"before_coil\"} " + String(tempBeforeF) + "\n";
+  response += "hvac_temperature_fahrenheit{location=\"after_coil\"} " + String(tempAfterF) + "\n";
+  response += "hvac_temperature_fahrenheit{location=\"attic\"} " + String(tempAtticF) + "\n";
+  response += "hvac_signal_state{signal=\"compressor\"} " + String(fanEnergized ? "1" : "0") + "\n";
+  response += "hvac_signal_state{signal=\"reversing_valve\"} " + String(reversingValveEnergized ? "1" : "0") + "\n";
 
 #ifdef WIFI_ENABLED
   server.send(200, "text/plain", response);
@@ -204,6 +196,13 @@ void setup()
 #endif
   pinMode(HVAC_PIN18, INPUT);
   pinMode(HVAC_PIN21, INPUT);
+  startTime = millis();
+  server.on("/health", handleHealth);
+  // Timeout after WATCHDOG_TIMEOUT seconds if not reset
+#ifdef ESP32
+  esp_task_wdt_init(WATCHDOG_TIMEOUT, true);
+  esp_task_wdt_add(NULL);
+#endif
 }
 
 void loop()
@@ -211,6 +210,11 @@ void loop()
 #ifdef WIFI_ENABLED
   server.handleClient();
 #endif
+  if (millis() - lastSampleTime > sampleInterval)
+  {
+    sampleHVAC();
+    lastSampleTime = millis();
+  }
 #ifdef DEBUG_LOGGING
   // Optionally print readings to Serial Monitor every 10 seconds
   static unsigned long lastPrint = 0;
@@ -260,5 +264,8 @@ void loop()
   }
 
   delay(500);
+#endif
+#ifdef ESP32
+  esp_task_wdt_reset();
 #endif
 }
