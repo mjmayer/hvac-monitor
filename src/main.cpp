@@ -193,8 +193,8 @@ void setup()
   pinMode(HVAC_PIN21, INPUT);
   startTime = millis();
   server.on("/health", handleHealth);
-  // Timeout after 5 seconds if not reset
-  esp_task_wdt_init(5, true);
+  // Timeout after WATCHDOG_TIMEOUT seconds if not reset
+  esp_task_wdt_init(WATCHDOG_TIMEOUT, true);
   esp_task_wdt_add(NULL);
 }
 
