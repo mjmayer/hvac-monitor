@@ -28,7 +28,7 @@
 #define HVAC_PIN21 21
 
 // Watchdog timeout in seconds
-#define WATCHDOG_TIMEOUT 5
+#define WATCHDOG_TIMEOUT 15
 
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
@@ -56,6 +56,11 @@ float tempBeforeC = NAN, tempAfterC = NAN, tempAtticC = NAN;
 // These states are updated every 5 seconds based on the optocoupler input sampling logic.
 bool fanEnergized = false, reversingValveEnergized = false;
 unsigned long startTime;
+static unsigned long lastReconnectAttempt = 0;
+const unsigned long reconnectInterval = 10000;  // 10 seconds
+const int RECONNECT_DELAY_MS = 500;             // Delay between reconnect attempts in milliseconds
+const int MAX_RECONNECT_ATTEMPTS = 20;          // Maximum number of reconnect attempts
+const unsigned long wifiConnectTimeout = 15000; // 15 seconds timeout
 
 void handleHealth()
 {
@@ -143,15 +148,24 @@ void setup()
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(ssid);
+  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
-  while (WiFi.status() != WL_CONNECTED)
+  unsigned long wifiConnectStart = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - wifiConnectStart < wifiConnectTimeout)
   {
-    delay(500);
+    delay(100);
     yield(); // Allow other tasks to run
 #ifdef DEBUG_LOGGING
     Serial.print(".");
 #endif
+  }
+  if (WiFi.status() != WL_CONNECTED)
+  {
+#ifdef DEBUG_LOGGING
+    Serial.println("\nWiFi connection timed out.");
+#endif
+    // Optionally handle connection failure here (e.g., restart, continue without WiFi, etc.)
   }
 
   while (WiFi.localIP() == IPAddress(0, 0, 0, 0))
@@ -208,6 +222,44 @@ void setup()
 void loop()
 {
 #ifdef WIFI_ENABLED
+
+  // Check WiFi connection and reconnect if disconnected
+  if (WiFi.status() != WL_CONNECTED && millis() - lastReconnectAttempt >= reconnectInterval)
+  {
+    lastReconnectAttempt = millis();
+#ifdef DEBUG_LOGGING
+    Serial.println("WiFi disconnected. Attempting to reconnect...");
+#endif
+    WiFi.disconnect();
+    WiFi.begin(ssid, password);
+
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < MAX_RECONNECT_ATTEMPTS)
+    {
+      delay(RECONNECT_DELAY_MS);
+      attempts++;
+#ifdef DEBUG_LOGGING
+      Serial.print(".");
+#endif
+      yield(); // Allow other tasks to run
+    }
+
+    if (WiFi.status() == WL_CONNECTED)
+    {
+#ifdef DEBUG_LOGGING
+      Serial.println("\nWiFi reconnected successfully.");
+      Serial.print("IP address: ");
+      Serial.println(WiFi.localIP().toString());
+#endif
+    }
+    else
+    {
+#ifdef DEBUG_LOGGING
+      Serial.println("\nFailed to reconnect to WiFi. Will try again in next loop.");
+#endif
+    }
+  }
+
   server.handleClient();
 #endif
   if (millis() - lastSampleTime > sampleInterval)
