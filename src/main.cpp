@@ -223,7 +223,7 @@ void loop()
     WiFi.begin(ssid, password);
 
     int attempts = 0;
-    while (WiFi.status() != WL_CONNECTED && attempts < 20)
+    while (WiFi.status() != WL_CONNECTED && attempts < MAX_RECONNECT_ATTEMPTS)
     {
       delay(500);
       yield(); // Allow other tasks to run
