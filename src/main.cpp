@@ -56,6 +56,10 @@ float tempBeforeC = NAN, tempAfterC = NAN, tempAtticC = NAN;
 // These states are updated every 5 seconds based on the optocoupler input sampling logic.
 bool fanEnergized = false, reversingValveEnergized = false;
 unsigned long startTime;
+static unsigned long lastReconnectAttempt = 0;
+const unsigned long reconnectInterval = 10000; // 10 seconds
+const int RECONNECT_DELAY_MS = 500;            // Delay between reconnect attempts in milliseconds
+const int MAX_RECONNECT_ATTEMPTS = 20;         // Maximum number of reconnect attempts
 
 void handleHealth()
 {
@@ -209,9 +213,6 @@ void setup()
 void loop()
 {
 #ifdef WIFI_ENABLED
-  static unsigned long lastReconnectAttempt = 0;
-  const unsigned long reconnectInterval = 10000; // 10 seconds
-  const int RECONNECT_DELAY_MS = 500;            // Delay between reconnect attempts in milliseconds
 
   // Check WiFi connection and reconnect if disconnected
   if (WiFi.status() != WL_CONNECTED && millis() - lastReconnectAttempt >= reconnectInterval)
