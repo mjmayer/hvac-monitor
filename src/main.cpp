@@ -57,9 +57,10 @@ float tempBeforeC = NAN, tempAfterC = NAN, tempAtticC = NAN;
 bool fanEnergized = false, reversingValveEnergized = false;
 unsigned long startTime;
 static unsigned long lastReconnectAttempt = 0;
-const unsigned long reconnectInterval = 10000; // 10 seconds
-const int RECONNECT_DELAY_MS = 500;            // Delay between reconnect attempts in milliseconds
-const int MAX_RECONNECT_ATTEMPTS = 20;         // Maximum number of reconnect attempts
+const unsigned long reconnectInterval = 10000;  // 10 seconds
+const int RECONNECT_DELAY_MS = 500;             // Delay between reconnect attempts in milliseconds
+const int MAX_RECONNECT_ATTEMPTS = 20;          // Maximum number of reconnect attempts
+const unsigned long wifiConnectTimeout = 15000; // 15 seconds timeout
 
 void handleHealth()
 {
@@ -150,13 +151,21 @@ void setup()
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
-  while (WiFi.status() != WL_CONNECTED)
+  unsigned long wifiConnectStart = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - wifiConnectStart < wifiConnectTimeout)
   {
-    delay(500);
+    delay(100);
     yield(); // Allow other tasks to run
 #ifdef DEBUG_LOGGING
     Serial.print(".");
 #endif
+  }
+  if (WiFi.status() != WL_CONNECTED)
+  {
+#ifdef DEBUG_LOGGING
+    Serial.println("\nWiFi connection timed out.");
+#endif
+    // Optionally handle connection failure here (e.g., restart, continue without WiFi, etc.)
   }
 
   while (WiFi.localIP() == IPAddress(0, 0, 0, 0))
