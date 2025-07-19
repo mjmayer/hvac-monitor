@@ -209,9 +209,13 @@ void setup()
 void loop()
 {
 #ifdef WIFI_ENABLED
+  static unsigned long lastReconnectAttempt = 0;
+  const unsigned long reconnectInterval = 10000; // 10 seconds
+
   // Check WiFi connection and reconnect if disconnected
-  if (WiFi.status() != WL_CONNECTED)
+  if (WiFi.status() != WL_CONNECTED && millis() - lastReconnectAttempt >= reconnectInterval)
   {
+    lastReconnectAttempt = millis();
 #ifdef DEBUG_LOGGING
     Serial.println("WiFi disconnected. Attempting to reconnect...");
 #endif
