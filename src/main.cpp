@@ -143,6 +143,7 @@ void setup()
   Serial.println();
   Serial.print("Connecting to ");
   Serial.println(ssid);
+  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
   while (WiFi.status() != WL_CONNECTED)
@@ -208,6 +209,42 @@ void setup()
 void loop()
 {
 #ifdef WIFI_ENABLED
+  // Check WiFi connection and reconnect if disconnected
+  if (WiFi.status() != WL_CONNECTED)
+  {
+#ifdef DEBUG_LOGGING
+    Serial.println("WiFi disconnected. Attempting to reconnect...");
+#endif
+    WiFi.disconnect();
+    WiFi.begin(ssid, password);
+
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 20)
+    {
+      delay(500);
+      yield(); // Allow other tasks to run
+#ifdef DEBUG_LOGGING
+      Serial.print(".");
+#endif
+      attempts++;
+    }
+
+    if (WiFi.status() == WL_CONNECTED)
+    {
+#ifdef DEBUG_LOGGING
+      Serial.println("\nWiFi reconnected successfully.");
+      Serial.print("IP address: ");
+      Serial.println(WiFi.localIP().toString());
+#endif
+    }
+    else
+    {
+#ifdef DEBUG_LOGGING
+      Serial.println("\nFailed to reconnect to WiFi. Will try again in next loop.");
+#endif
+    }
+  }
+
   server.handleClient();
 #endif
   if (millis() - lastSampleTime > sampleInterval)
