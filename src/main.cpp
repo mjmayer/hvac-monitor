@@ -234,17 +234,13 @@ void loop()
     WiFi.begin(ssid, password);
 
     int attempts = 0;
-    unsigned long reconnectStartTime = millis();
     while (WiFi.status() != WL_CONNECTED && attempts < MAX_RECONNECT_ATTEMPTS)
     {
-      if (millis() - reconnectStartTime >= RECONNECT_DELAY_MS)
-      {
-        reconnectStartTime = millis();
-        attempts++;
+      delay(RECONNECT_DELAY_MS);
+      attempts++;
 #ifdef DEBUG_LOGGING
-        Serial.print(".");
+      Serial.print(".");
 #endif
-      }
       yield(); // Allow other tasks to run
     }
 
