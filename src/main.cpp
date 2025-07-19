@@ -28,7 +28,7 @@
 #define HVAC_PIN21 21
 
 // Watchdog timeout in seconds
-#define WATCHDOG_TIMEOUT 5
+#define WATCHDOG_TIMEOUT 15
 
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
