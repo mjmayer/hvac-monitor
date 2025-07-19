@@ -46,15 +46,17 @@ DeviceAddress sensorBeforeCoil = {0x28, 0x58, 0x34, 0x50, 0x00, 0x00, 0x00, 0xD2
 DeviceAddress sensorAfterCoil = {0x28, 0x32, 0x5A, 0x51, 0x00, 0x00, 0x00, 0xE2};
 DeviceAddress sensorAttic = {0x28, 0x0D, 0x70, 0x54, 0x00, 0x00, 0x00, 0xEF};
 
+// Defines the time interval for sampling the HVAC system
 unsigned long lastSampleTime = 0;
 const unsigned long sampleInterval = 5000; // 5 seconds
 
-// Cached temperature values from sensors.
+// Cached values from temperature sensors.
 // These values are updated every 5 seconds based on the sampleInterval.
 float tempBeforeC = NAN, tempAfterC = NAN, tempAtticC = NAN;
 // Cached digital input states representing whether the fan and reversing valve are energized.
 // These states are updated every 5 seconds based on the optocoupler input sampling logic.
 bool fanEnergized = false, reversingValveEnergized = false;
+
 unsigned long startTime;
 static unsigned long lastReconnectAttempt = 0;
 const unsigned long reconnectInterval = 10000;  // 10 seconds
@@ -116,6 +118,7 @@ void sampleHVAC()
   reversingValveEnergized = isSignalEnergized(HVAC_PIN21);
 }
 
+// Function to handle /metrics endpoint for prometheus scraping
 void handleMetrics()
 {
   float tempBeforeF = tempBeforeC * 9.0 / 5.0 + 32.0;
@@ -205,13 +208,13 @@ void setup()
 #endif
 #ifdef WIFI_ENABLED
   server.on("/metrics", handleMetrics);
+  server.on("/health", handleHealth);
   server.begin();
   Serial.println("HTTP server started.");
 #endif
   pinMode(HVAC_PIN18, INPUT);
   pinMode(HVAC_PIN21, INPUT);
   startTime = millis();
-  server.on("/health", handleHealth);
   // Timeout after WATCHDOG_TIMEOUT seconds if not reset
 #ifdef ESP32
   esp_task_wdt_init(WATCHDOG_TIMEOUT, true);
