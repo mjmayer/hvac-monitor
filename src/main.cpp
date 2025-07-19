@@ -211,7 +211,6 @@ void loop()
 #ifdef WIFI_ENABLED
   static unsigned long lastReconnectAttempt = 0;
   const unsigned long reconnectInterval = 10000; // 10 seconds
-  const int MAX_RECONNECT_ATTEMPTS = 20;         // Maximum number of WiFi reconnect attempts
   const int RECONNECT_DELAY_MS = 500;            // Delay between reconnect attempts in milliseconds
 
   // Check WiFi connection and reconnect if disconnected
